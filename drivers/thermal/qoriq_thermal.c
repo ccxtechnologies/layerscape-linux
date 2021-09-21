@@ -219,27 +219,25 @@ static int qoriq_tmu_register_tmu_zone(struct device *dev,
 				ret = PTR_ERR(sensor->cdev);
 				pr_err("failed to register devfreq cooling device: %d\n",
 					ret);
-				return ret;
+			} else {
+				ret = thermal_zone_bind_cooling_device(sensor->tzd,
+					TMU_TRIP_PASSIVE,
+					sensor->cdev,
+					THERMAL_NO_LIMIT,
+					THERMAL_NO_LIMIT,
+					THERMAL_WEIGHT_DEFAULT);
+				if (ret) {
+					pr_err("binding zone %s with cdev %s failed:%d\n",
+						sensor->tzd->type,
+						sensor->cdev->type,
+						ret);
+					devfreq_cooling_unregister(sensor->cdev);
+				} else {
+					trip = of_thermal_get_trip_points(sensor->tzd);
+					sensor->temp_passive = trip[0].temperature;
+					sensor->temp_critical = trip[1].temperature;
+				}
 			}
-
-			ret = thermal_zone_bind_cooling_device(sensor->tzd,
-				TMU_TRIP_PASSIVE,
-				sensor->cdev,
-				THERMAL_NO_LIMIT,
-				THERMAL_NO_LIMIT,
-				THERMAL_WEIGHT_DEFAULT);
-			if (ret) {
-				pr_err("binding zone %s with cdev %s failed:%d\n",
-					sensor->tzd->type,
-					sensor->cdev->type,
-					ret);
-				devfreq_cooling_unregister(sensor->cdev);
-				return ret;
-			}
-
-			trip = of_thermal_get_trip_points(sensor->tzd);
-			sensor->temp_passive = trip[0].temperature;
-			sensor->temp_critical = trip[1].temperature;
 		}
 	}
 
