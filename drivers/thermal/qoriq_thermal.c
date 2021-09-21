@@ -215,7 +215,10 @@ static int qoriq_tmu_register_tmu_zone(struct device *dev,
 		/* first thermal zone takes care of system-wide device cooling */
 		if (id == 0) {
 			sensor->cdev = devfreq_cooling_register();
-			if (IS_ERR(sensor->cdev)) {
+			if (!sensor->cdev) {
+				pr_warn("failed to register devfreq cooling device, most likely"
+￼					" CONFIG_DEVICE_THERMAL is not configured in the kernel\n");
+￼			} else if (IS_ERR(sensor->cdev)) {
 				ret = PTR_ERR(sensor->cdev);
 				pr_err("failed to register devfreq cooling device: %d\n",
 					ret);
