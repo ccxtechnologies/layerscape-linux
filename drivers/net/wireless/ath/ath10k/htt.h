@@ -150,9 +150,7 @@ enum htt_data_tx_desc_flags1 {
 	HTT_DATA_TX_DESC_FLAGS1_MORE_IN_BATCH    = 1 << 12,
 	HTT_DATA_TX_DESC_FLAGS1_CKSUM_L3_OFFLOAD = 1 << 13,
 	HTT_DATA_TX_DESC_FLAGS1_CKSUM_L4_OFFLOAD = 1 << 14,
-	HTT_DATA_TX_DESC_FLAGS1_TX_COMPLETE_SDIO      = 1 << 15,
-	/* Now we have collision it seems, but -ct firmware doesn't support SDIO anyway, so OK for now. --Ben */
-	HTT_DATA_TX_DESC_FLAGS1_NO_ACK_CT /*RSVD1*/ = 1 << 15 /* Using this for no-ack flag, raw-tx only. --Ben */
+	HTT_DATA_TX_DESC_FLAGS1_TX_COMPLETE      = 1 << 15
 };
 
 #define HTT_TX_CREDIT_DELTA_ABS_M      0xffff0000
@@ -386,9 +384,7 @@ struct htt_mgmt_tx_desc {
 enum htt_mgmt_tx_status {
 	HTT_MGMT_TX_STATUS_OK    = 0,
 	HTT_MGMT_TX_STATUS_RETRY = 1,
-	HTT_MGMT_TX_STATUS_DROP  = 2,
-	HTT_MGMT_TX_STATUS_TXFILT = 3 /* Seems to be logically similar to
-					 RETRY failure. */
+	HTT_MGMT_TX_STATUS_DROP  = 2
 };
 
 /*=== target -> host messages ===============================================*/
@@ -592,10 +588,6 @@ struct htt_mgmt_tx_completion {
 #define HTT_TX_CMPL_FLAG_PPID_PRESENT		BIT(1)
 #define HTT_TX_CMPL_FLAG_PA_PRESENT		BIT(2)
 #define HTT_TX_CMPL_FLAG_PPDU_DURATION_PRESENT	BIT(3)
-
-// CT only flags
-#define HTT_TX_CMPL_FLAG_RETRIES_FILLED         BIT(5)
-#define HTT_TX_CMPL_FLAG_RATE_FILLED            BIT(6)
 
 #define HTT_TX_DATA_RSSI_ENABLE_WCN3990 BIT(3)
 #define HTT_TX_DATA_APPEND_RETRIES BIT(0)
@@ -853,12 +845,10 @@ enum htt_security_types {
 
 #define ATH10K_HTT_TXRX_PEER_SECURITY_MAX 2
 #define ATH10K_TXRX_NUM_EXT_TIDS 19
-#define ATH10K_TXRX_NON_QOS_TID 16
 
 enum htt_security_flags {
-#define HTT_SECURITY_TYPE_MASK 0x3F
+#define HTT_SECURITY_TYPE_MASK 0x7F
 #define HTT_SECURITY_TYPE_LSB  0
-	HTT_SECURITY_IS_FAILURE = 1 << 6, /* CT firmware only */
 	HTT_SECURITY_IS_UNICAST = 1 << 7
 };
 
@@ -867,9 +857,7 @@ struct htt_security_indication {
 		/* dont use bitfields; undefined behaviour */
 		u8 flags; /* %htt_security_flags */
 		struct {
-			u8 security_type:6, /* %htt_security_types */
-			   is_failure:1, /* does this response indicate failure
-					    (CT Firmware) */
+			u8 security_type:7, /* %htt_security_types */
 			   is_unicast:1;
 		} __packed;
 	} __packed;
@@ -1020,49 +1008,6 @@ struct htt_data_tx_ppdu_dur {
 struct htt_data_tx_compl_ppdu_dur {
 	__le32 info0; /* HTT_TX_COMPL_PPDU_DUR_INFO0_ */
 	struct htt_data_tx_ppdu_dur ppdu_dur[];
-} __packed;
-
-struct msdu_rx_compl_info_ct {
-	__le16 id; /* msdu id */
-	u8 tx_rate_code; /* what rate index the firmware reports transmitting at. */
-	u8 tx_rate_flags; /* what rate flags, See ATH10K_RC_FLAG_SGI, etc */
-};
-
-struct msdu_rx_compl_info_ct2 {
-	__le16 id; /* msdu id */
-	u8 tx_rate_code; /* what rate index the firmware reports transmitting at. */
-	u8 tx_rate_flags; /* what rate flags, See ATH10K_RC_FLAG_SGI, etc */
-	u8 mpdus_tried; /* Frames we tried to transmit */
-	u8 mpdus_failed; /* Frames we failed to get (block)ack'd */
-	u8 unused[2];
-};
-
-struct htt_data_tx_completion_ct {
-	union {
-		u8 flags;
-		struct {
-			u8 status:3,
-			   tid:4,
-			   tid_invalid:1;
-		} __packed;
-	} __packed;
-	u8 num_msdus;
-	u8 rsvd0;
-	struct msdu_rx_compl_info_ct msdus[0]; /* variable length based on %num_msdus */
-} __packed;
-
-struct htt_data_tx_completion_ct2 {
-	union {
-		u8 flags;
-		struct {
-			u8 status:3,
-			   tid:4,
-			   tid_invalid:1;
-		} __packed;
-	} __packed;
-	u8 num_msdus;
-	u8 rsvd0;
-	struct msdu_rx_compl_info_ct2 msdus[0]; /* variable length based on %num_msdus */
 } __packed;
 
 struct htt_tx_compl_ind_base {
@@ -1867,8 +1812,6 @@ struct htt_resp {
 		struct htt_ver_resp ver_resp;
 		struct htt_mgmt_tx_completion mgmt_tx_completion;
 		struct htt_data_tx_completion data_tx_completion;
-		struct htt_data_tx_completion_ct data_tx_completion_ct;
-		struct htt_data_tx_completion_ct2 data_tx_completion_ct2;
 		struct htt_rx_indication rx_ind;
 		struct htt_rx_indication_hl rx_ind_hl;
 		struct htt_rx_fragment_indication rx_frag_ind;
@@ -1895,27 +1838,10 @@ struct htt_resp {
 
 /*** host side structures follow ***/
 
-/* tx-rate flags field definitions, see firmware whal_desc.h */
-/* First two bits are for tx-completion report. */
-#define ATH10K_RC_FLAG_TXOK       0x00 /* Pkt transmitted OK */
-#define ATH10K_RC_FLAG_XRETRY     0x01 /* Pkt failed to transmit, too many retries. */
-#define ATH10K_RC_FLAG_DROP       0x02 /* Dropped due to tid flush, local buffer exhaustion, etc. */
-
-#define ATH10K_RC_FLAG_SGI        0x08 /* use HT SGI if set */
-#define ATH10K_RC_FLAG_STBC       0x10 /* use HT STBC if set */
-#define ATH10K_RC_FLAG_40MHZ      0x20 /* 40 mhz mode */
-#define ATH10K_RC_FLAG_80MHZ      0x40 /* 80 mhz mode */
-#define ATH10K_RC_FLAG_160MHZ     0x80 /* 160 mhz mode */
-
-
 struct htt_tx_done {
 	u16 msdu_id;
 	u16 status;
 	u8 ack_rssi;
-	u8 tx_rate_code; /* CT firmware only, see firmware ar_desc_wifi_ip01.h (search for 0x44) */
-	u8 tx_rate_flags; /* CT firmware only, see flag defs above */
-	u8 mpdus_tried; /* CT firmware only */
-	u8 mpdus_failed; /* CT firmware only */
 };
 
 enum htt_tx_compl_state {
@@ -1957,7 +1883,6 @@ struct ath10k_htt {
 
 	u8 target_version_major;
 	u8 target_version_minor;
-	bool needs_unlock;
 	struct completion target_version_received;
 	u8 max_num_amsdu;
 	u8 max_num_ampdu;
@@ -2117,8 +2042,7 @@ struct ath10k_htt_tx_ops {
 	int (*htt_send_frag_desc_bank_cfg)(struct ath10k_htt *htt);
 	int (*htt_alloc_frag_desc)(struct ath10k_htt *htt);
 	void (*htt_free_frag_desc)(struct ath10k_htt *htt);
-	int (*htt_tx)(struct ath10k_htt *htt, struct ieee80211_vif *vif,
-		      enum ath10k_hw_txrx_mode txmode,
+	int (*htt_tx)(struct ath10k_htt *htt, enum ath10k_hw_txrx_mode txmode,
 		      struct sk_buff *msdu);
 	int (*htt_alloc_txbuff)(struct ath10k_htt *htt);
 	void (*htt_free_txbuff)(struct ath10k_htt *htt);
@@ -2159,11 +2083,10 @@ static inline void ath10k_htt_free_frag_desc(struct ath10k_htt *htt)
 }
 
 static inline int ath10k_htt_tx(struct ath10k_htt *htt,
-				struct ieee80211_vif *vif,
 				enum ath10k_hw_txrx_mode txmode,
 				struct sk_buff *msdu)
 {
-	return htt->tx_ops->htt_tx(htt, vif, txmode, msdu);
+	return htt->tx_ops->htt_tx(htt, txmode, msdu);
 }
 
 static inline void ath10k_htt_flush_tx(struct ath10k_htt *htt)
@@ -2318,7 +2241,7 @@ struct htt_rx_chan_info {
  * Should be: sizeof(struct htt_host_rx_desc) + max rx MSDU size,
  * rounded up to a cache line size.
  */
-#define HTT_RX_BUF_SIZE 2048 /* used to be 1920, but then MTU > 1500 fails, see CT bug 89 */
+#define HTT_RX_BUF_SIZE 1920
 #define HTT_RX_MSDU_SIZE (HTT_RX_BUF_SIZE - (int)sizeof(struct htt_rx_desc))
 
 /* Refill a bunch of RX buffers for each refill round so that FW/HW can handle

@@ -94,7 +94,7 @@ static void ath10k_htc_prepare_tx_skb(struct ath10k_htc_ep *ep,
 }
 
 static int ath10k_htc_consume_credit(struct ath10k_htc_ep *ep,
-				     unsigned int len, unsigned int cmd_id,
+				     unsigned int len,
 				     bool consume)
 {
 	struct ath10k_htc *htc = ep->htc;
@@ -118,16 +118,9 @@ static int ath10k_htc_consume_credit(struct ath10k_htc_ep *ep,
 
 	if (consume) {
 		ep->tx_credits -= credits;
-		if (eid == ar->wmi.eid) {
-			ath10k_dbg(ar, ATH10K_DBG_HTC,
-				   "htc ep %d consumed %d credits (total %d, wmi-cmd 0x%x)\n",
-				   eid, credits, ep->tx_credits, __le32_to_cpu(cmd_id));
-		}
-		else {
-			ath10k_dbg(ar, ATH10K_DBG_HTC,
-				   "htc ep %d consumed %d credits (total %d)\n",
-				   eid, credits, ep->tx_credits);
-		}
+		ath10k_dbg(ar, ATH10K_DBG_HTC,
+			   "htc ep %d consumed %d credits total %d\n",
+			   eid, credits, ep->tx_credits);
 	}
 
 unlock:
@@ -168,8 +161,6 @@ int ath10k_htc_send(struct ath10k_htc *htc,
 	struct device *dev = htc->ar->dev;
 	int ret;
 	unsigned int skb_len;
-	struct wmi_cmd_hdr* hdr;
-	unsigned int cmd_id;
 
 	if (htc->ar->state == ATH10K_STATE_WEDGED)
 		return -ECOMM;
@@ -182,10 +173,7 @@ int ath10k_htc_send(struct ath10k_htc *htc,
 	skb_push(skb, sizeof(struct ath10k_htc_hdr));
 
 	skb_len = skb->len;
-	hdr = (struct wmi_cmd_hdr*)(skb->data + sizeof(struct ath10k_htc_hdr));
-	cmd_id = hdr->cmd_id;
-
-	ret = ath10k_htc_consume_credit(ep, skb_len, cmd_id, true);
+	ret = ath10k_htc_consume_credit(ep, skb_len, true);
 	if (ret)
 		goto err_pull;
 
@@ -647,7 +635,7 @@ static int ath10k_htc_send_bundle(struct ath10k_htc_ep *ep,
 
 	ath10k_dbg(ar, ATH10K_DBG_HTC, "bundle skb len %d\n", bundle_skb->len);
 	skb_len = bundle_skb->len;
-	ret = ath10k_htc_consume_credit(ep, skb_len, 0, true);
+	ret = ath10k_htc_consume_credit(ep, skb_len, true);
 
 	if (!ret) {
 		sg_item.transfer_id = ep->eid;
@@ -677,7 +665,7 @@ static int ath10k_htc_send_bundle(struct ath10k_htc_ep *ep,
 
 	ath10k_dbg(ar, ATH10K_DBG_HTC,
 		   "bundle tx status %d eid %d req count %d count %d len %d\n",
-		   ret, ep->eid, skb_queue_len(&ep->tx_req_head), cn, skb_len);
+		   ret, ep->eid, skb_queue_len(&ep->tx_req_head), cn, bundle_skb->len);
 	return ret;
 }
 
@@ -736,7 +724,7 @@ static int ath10k_htc_send_bundle_skbs(struct ath10k_htc_ep *ep)
 		}
 
 		ret = ath10k_htc_consume_credit(ep,
-						bundle_buf + trans_len - bundle_skb->data, 0,
+						bundle_buf + trans_len - bundle_skb->data,
 						false);
 		if (ret) {
 			skb_queue_head(&ep->tx_req_head, skb);

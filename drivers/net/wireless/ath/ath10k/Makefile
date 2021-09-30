@@ -3,7 +3,6 @@ obj-$(CONFIG_ATH10K) += ath10k_core.o
 ath10k_core-y += mac.o \
 		 debug.o \
 		 core.o \
-		 coredump.o \
 		 htc.o \
 		 htt.o \
 		 htt_rx.o \
@@ -22,6 +21,7 @@ ath10k_core-$(CONFIG_ATH10K_TRACING) += trace.o
 ath10k_core-$(CONFIG_THERMAL) += thermal.o
 ath10k_core-$(CONFIG_MAC80211_DEBUGFS) += debugfs_sta.o
 ath10k_core-$(CONFIG_PM) += wow.o
+ath10k_core-$(CONFIG_DEV_COREDUMP) += coredump.o
 ath10k_core-$(CONFIG_ATH10K_CE) += ce.o
 
 obj-$(CONFIG_ATH10K_PCI) += ath10k_pci.o

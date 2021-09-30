@@ -726,8 +726,7 @@ struct rx_ppdu_start {
 		u8 ext80_mhz;
 	} rssi_chains[4];
 	u8 rssi_comb;
-	u8 rsvd0; /* wave-2: first two bits are bandwidth, other 6 reserved */
-	u8 rssi_comb_ht; /* wave-2 only, wave-1 sets to zero */
+	__le16 rsvd0;
 	u8 info0; /* %RX_PPDU_START_INFO0_ */
 	__le32 info1; /* %RX_PPDU_START_INFO1_ */
 	__le32 info2; /* %RX_PPDU_START_INFO2_ */
@@ -1283,19 +1282,7 @@ struct fw_rx_desc_base {
 #define FW_RX_DESC_UDP              (1 << 6)
 
 struct fw_rx_desc_hl {
-	union {
-		struct {
-		u8 discard:1,
-		   forward:1,
-		   any_err:1,
-		   dup_err:1,
-		   reserved:1,
-		   inspect:1,
-		   extension:2;
-		} bits;
-		u8 info0;
-	} u;
-
+	u8 info0;
 	u8 version;
 	u8 len;
 	u8 flags;
