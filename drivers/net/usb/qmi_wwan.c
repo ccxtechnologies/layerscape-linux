@@ -419,6 +419,13 @@ static ssize_t add_mux_store(struct device *d,  struct device_attribute *attr, c
 		goto err;
 	}
 
+	/* we don't want to modify a running netdev */
+	if (netif_running(dev->net)) {
+		netdev_err(dev->net, "Cannot change a running device\n");
+		ret = -EBUSY;
+		goto err;
+	}
+
 	ret = qmimux_register_device(dev->net, mux_id);
 	if (!ret) {
 		info->flags |= QMI_WWAN_FLAG_MUX;
@@ -447,6 +454,13 @@ static ssize_t del_mux_store(struct device *d,  struct device_attribute *attr, c
 
 	if (!rtnl_trylock())
 		return restart_syscall();
+
+	/* we don't want to modify a running netdev */
+	if (netif_running(dev->net)) {
+		netdev_err(dev->net, "Cannot change a running device\n");
+		ret = -EBUSY;
+		goto err;
+	}
 
 	del_dev = qmimux_find_dev(dev, mux_id);
 	if (!del_dev) {
@@ -1286,6 +1300,8 @@ static const struct usb_device_id products[] = {
 	{QMI_QUIRK_SET_DTR(0x1199, 0x907b, 8)},	/* Sierra Wireless EM74xx */
 	{QMI_QUIRK_SET_DTR(0x1199, 0x907b, 10)},/* Sierra Wireless EM74xx */
 	{QMI_QUIRK_SET_DTR(0x1199, 0x9091, 8)},	/* Sierra Wireless EM7565 */
+	{QMI_QUIRK_SET_DTR(0x1199, 0x90d9, 0)},	/* Sierra Wireless EM9191 */
+	{QMI_QUIRK_SET_DTR(0x1199, 0x90d3, 8)},	/* Sierra Wireless EM919X RmNET */
 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Alcatel One Touch L100V LTE) */
 	{QMI_FIXED_INTF(0x1bbb, 0x0203, 2)},	/* Alcatel L800MA */
 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
