@@ -168,6 +168,39 @@ struct dp83867_private {
 	bool sgmii_ref_clk_en;
 };
 
+static ssize_t impedance_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct phy_device *phydev = to_phy_device(dev);
+	int val, impedance;
+
+	val = phy_read_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG);
+	impedance = val & DP83867_IO_MUX_CFG_IO_IMPEDANCE_MASK;
+
+	return scnprintf(buf, PAGE_SIZE, "%dohms\n",
+			 (impedance+35));
+}
+
+static ssize_t impedance_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct phy_device *phydev = to_phy_device(dev);
+	int val, impedance;
+
+	if (sscanf(buf, "%dohms", &impedance) != 1)
+		return -EINVAL;
+
+	val = phy_read_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG);
+	val &= ~(DP83867_IO_MUX_CFG_IO_IMPEDANCE_MASK);
+	val |= (impedance-35) & DP83867_IO_MUX_CFG_IO_IMPEDANCE_MASK;
+	phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG, val);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(impedance);
+
 static ssize_t rgmii_delay_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
@@ -227,6 +260,7 @@ static DEVICE_ATTR_RW(rgmii_delay);
 
 static struct attribute *dp83867_sysfs_entries[] = {
 	&dev_attr_rgmii_delay.attr,
+	&dev_attr_impedance.attr,
 	NULL
 };
 
