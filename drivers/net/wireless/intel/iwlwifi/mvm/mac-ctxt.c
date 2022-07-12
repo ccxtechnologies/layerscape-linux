@@ -735,6 +735,7 @@ static int iwl_mvm_mac_ctxt_cmd_listener(struct iwl_mvm *mvm,
 	ieee80211_hw_set(mvm->hw, RX_INCLUDES_FCS);
 
 	/* Allocate sniffer station */
+	IWL_WARN(mvm, "+++ SNIFFER +++\n");
 	ret = iwl_mvm_allocate_int_sta(mvm, &mvm->snif_sta, tfd_queue_msk,
 				       vif->type, IWL_STA_GENERAL_PURPOSE);
 	if (ret)

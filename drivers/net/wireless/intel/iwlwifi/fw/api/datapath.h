@@ -211,4 +211,7 @@ struct iwl_channel_estimation_cfg {
 	__le64 frame_types;
 } __packed; /* CHEST_COLLECTOR_FILTER_CMD_API_S_VER_1 */
 
+#define IWL_MAX_BAID_OLD	16 /* MAX_IMMEDIATE_BA_API_D_VER_2 */
+#define IWL_MAX_BAID		32 /* MAX_IMMEDIATE_BA_API_D_VER_3 */
+
 #endif /* __iwl_fw_api_datapath_h__ */

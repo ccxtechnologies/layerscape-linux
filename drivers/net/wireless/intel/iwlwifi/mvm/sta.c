@@ -100,9 +100,12 @@ static int iwl_mvm_find_free_sta_id(struct iwl_mvm *mvm,
 			continue;
 
 		if (!rcu_dereference_protected(mvm->fw_id_to_mac_id[sta_id],
-					       lockdep_is_held(&mvm->mutex)))
+					       lockdep_is_held(&mvm->mutex))) {
+			IWL_WARN(mvm, "+++ Creating station: %d\n", sta_id);
 			return sta_id;
+		}
 	}
+	IWL_ERR(mvm, "+++ No more stations: %d\n", mvm->fw->ucode_capa.num_stations);
 	return IWL_MVM_INVALID_STA;
 }
 
@@ -1971,6 +1974,7 @@ int iwl_mvm_allocate_int_sta(struct iwl_mvm *mvm,
 	if (!test_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status) ||
 	    sta->sta_id == IWL_MVM_INVALID_STA) {
 		sta->sta_id = iwl_mvm_find_free_sta_id(mvm, iftype);
+		IWL_WARN(mvm, "+++ Allocating internal station: %d\n", sta->sta_id);
 		if (WARN_ON_ONCE(sta->sta_id == IWL_MVM_INVALID_STA))
 			return -ENOSPC;
 	}
@@ -2064,6 +2068,7 @@ int iwl_mvm_add_aux_sta(struct iwl_mvm *mvm, u32 lmac_id)
 	lockdep_assert_held(&mvm->mutex);
 
 	/* Allocate aux station and assign to it the aux queue */
+	IWL_WARN(mvm, "+++ AUX +++\n");
 	ret = iwl_mvm_allocate_int_sta(mvm, &mvm->aux_sta, BIT(mvm->aux_queue),
 				       NL80211_IFTYPE_UNSPECIFIED,
 				       IWL_STA_AUX_ACTIVITY);
@@ -2270,6 +2275,7 @@ int iwl_mvm_alloc_bcast_sta(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 
 	lockdep_assert_held(&mvm->mutex);
 
+	IWL_WARN(mvm, "+++ BCAST +++\n");
 	return iwl_mvm_allocate_int_sta(mvm, &mvmvif->bcast_sta, 0,
 					ieee80211_vif_type_p2p(vif),
 					IWL_STA_GENERAL_PURPOSE);
@@ -2483,8 +2489,6 @@ int iwl_mvm_rm_mcast_sta(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	return ret;
 }
 
-#define IWL_MAX_RX_BA_SESSIONS 16
-
 static void iwl_mvm_sync_rxq_del_ba(struct iwl_mvm *mvm, u8 baid)
 {
 	struct iwl_mvm_rss_sync_notif notif = {
@@ -2574,10 +2578,11 @@ int iwl_mvm_sta_rx_agg(struct iwl_mvm *mvm, struct ieee80211_sta *sta,
 	struct iwl_mvm_baid_data *baid_data = NULL;
 	int ret;
 	u32 status;
+	u32 max_ba_id_sessions = iwl_mvm_has_new_tx_api(mvm) ? IWL_MAX_BAID : IWL_MAX_BAID_OLD;
 
 	lockdep_assert_held(&mvm->mutex);
 
-	if (start && mvm->rx_ba_sessions >= IWL_MAX_RX_BA_SESSIONS) {
+	if (start && mvm->rx_ba_sessions >= max_ba_id_sessions) {
 		IWL_WARN(mvm, "Not enough RX BA SESSIONS\n");
 		return -ENOSPC;
 	}
@@ -3947,6 +3952,7 @@ int iwl_mvm_add_pasn_sta(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	struct ieee80211_key_conf *keyconf;
 
+	IWL_WARN(mvm, "+++ PASN +++\n");
 	ret = iwl_mvm_allocate_int_sta(mvm, sta, 0,
 				       NL80211_IFTYPE_UNSPECIFIED,
 				       IWL_STA_LINK);

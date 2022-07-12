@@ -1493,6 +1493,7 @@ static int iwl_mvm_mac_add_interface(struct ieee80211_hw *hw,
 		 * Only queue for this station is the mcast queue,
 		 * which shouldn't be in TFD mask anyway
 		 */
+		IWL_WARN(mvm, "+++ MCAST +++\n");
 		ret = iwl_mvm_allocate_int_sta(mvm, &mvmvif->mcast_sta,
 					       0, vif->type,
 					       IWL_STA_MULTICAST);
