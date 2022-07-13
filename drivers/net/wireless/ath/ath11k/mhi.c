@@ -345,12 +345,8 @@ int ath11k_mhi_register(struct ath11k_pci *ab_pci)
 		return ret;
 	}
 
-	/* I don't usually comment out code, but this is from the 1 MSI
-	 * patch for ath11k. mhi_ctrl doesn't support irq_flags in our
-	 * version of linux, we will have to add support if it turns out
-	 * we need this. CE
 	if (!test_bit(ATH11K_PCI_FLAG_MULTI_MSI_VECTORS, &ab_pci->flags))
-		mhi_ctrl->irq_flags = IRQF_SHARED | IRQF_NOBALANCING;*/
+		mhi_ctrl->irq_flags = IRQF_SHARED | IRQF_NOBALANCING;
 
 	mhi_ctrl->iova_start = 0;
 	mhi_ctrl->iova_stop = 0xffffffff;
